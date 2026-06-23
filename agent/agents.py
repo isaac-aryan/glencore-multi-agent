@@ -26,12 +26,19 @@ import os
 
 import subprocess
 
+import sys
+
 def get_mcp_config():
     _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _src_path = os.path.join(_project_root, "src")
     _mcp_path = os.path.join(_src_path, "glencore_multi_agent", "mcp_server.py")
+    
+    # Use the same Python executable that's running this process
+    # This ensures the subprocess uses the venv with all packages installed
+    _python = sys.executable
+    
     return {
-        "command": "python",
+        "command": _python,
         "args": [_mcp_path],
         "env": {
             **os.environ,
