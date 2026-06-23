@@ -499,5 +499,55 @@ def run_cointegration_test(
 
     return result
 
+@mcp.tool
+def get_current_signals() -> dict:
+    """
+    Return current technical and commodity signals for Glencore.
+    These are the same signals used as ML features in Stage 4.
+    Useful for understanding the current market regime.
+    Returns RSI, momentum, vol regime, price-vs-MA, copper signals.
+    """
+    glen  = load_glencore()
+    comms = load_commodities()
+    r     = glen["log_return"]
+    p     = glen["adj_close"]
+
+    delta = p.diff()
+    gain  = delta.clip(lower=0).rolling(14).mean()
+    loss  = (-delta).clip(lower=0).rolling(14).mean()
+    rsi   = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
+
+    def safe(s):
+        v = s.iloc[-1]
+        return None if pd.isna(v) else round(float(v), 4)
+
+    result = {
+        "as_of": str(glen.index[-1].date()),
+        "price_gbx": round(float(p.iloc[-1]), 2),
+        "rsi_14": safe(rsi),
+        "momentum": {
+            "5d_pct":  safe(r.rolling(5).sum() * 100),
+            "21d_pct": safe(r.rolling(21).sum() * 100),
+            "63d_pct": safe(r.rolling(63).sum() * 100),
+        },
+        "price_vs_ma": {
+            "vs_21d_pct":  safe((p / p.rolling(21).mean() - 1) * 100),
+            "vs_63d_pct":  safe((p / p.rolling(63).mean() - 1) * 100),
+            "vs_252d_pct": safe((p / p.rolling(252).mean() - 1) * 100),
+        },
+        "vol_regime": {
+            "vol_5d_ann_pct":  safe(r.rolling(5).std() * np.sqrt(252) * 100),
+            "vol_21d_ann_pct": safe(r.rolling(21).std() * np.sqrt(252) * 100),
+            "vol_ratio_5_63":  safe(r.rolling(5).std() / r.rolling(63).std()),
+        },
+    }
+    if "copper_log_ret" in comms.columns:
+        cu = comms["copper_log_ret"].reindex(glen.index).ffill()
+        result["copper_signals"] = {
+            "ret_yesterday_pct": safe(cu.shift(1) * 100),
+            "mom_5d_pct":       safe(cu.rolling(5).sum() * 100),
+        }
+    return result
+    
 if __name__ == "__main__":
     mcp.run(transport="stdio")
