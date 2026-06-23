@@ -8,8 +8,8 @@ sys.path.insert(0, str(_root / "src"))
 import streamlit as st
 
 st.set_page_config(
-    page_title="Glencore Quant Research",
-    page_icon="📊",
+    page_title="Glencore Quantitative Research Dashboard",
+    page_icon="🪨",
     layout="wide",
 )
 
@@ -17,9 +17,14 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap');
 
-.stMarkdown, .stText, p, li, label, .stCaption {
+.stMarkdown p,
+.stMarkdown li,
+.stCaption,
+[data-testid="stMarkdownContainer"] {
     font-family: 'Lora', serif !important;
 }
+
+
 h1, h2, h3, h4 {
     font-family: 'Lora', serif !important;
     font-weight: 700 !important;
@@ -84,11 +89,11 @@ h1, h2, h3, h4 {
 """, unsafe_allow_html=True)
 
 # Header
-st.title("Glencore Quant Research")
-st.markdown("**GLEN.L** | Time series, volatility, and commodity analysis — self-directed learning project")
+st.title("Glencore Quantitative Research Dashboard")
+st.markdown("**GLEN.L** | Time series, volatility, and commodity analysis: self-directed learning project")
 
 col_gh, _ = st.columns([1, 6])
-col_gh.link_button("GitHub", "https://github.com/YOUR_USERNAME/glencore-multi-agent")
+col_gh.link_button("GitHub", "https://github.com/isaac-aryan/glencore-multi-agent/")
 
 st.divider()
 

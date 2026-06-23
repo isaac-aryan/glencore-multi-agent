@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
-import nest_asyncio
-nest_asyncio.apply()
+# import nest_asyncio
+# nest_asyncio.apply()
 
 _root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_root))
@@ -21,7 +21,13 @@ st.set_page_config(page_title="Research Agent", layout="wide")
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;500&display=swap');
-html, body, [class*="st-"] { font-family: serif !important; }
+html, body {
+    font-family: serif !important;
+}
+
+.stMarkdown, .stText, p, li, label, .stCaption {
+    font-family: serif !important;
+}
 h1, h2, h3 { font-family: serif !important; }
 
 /* Suggestion buttons */

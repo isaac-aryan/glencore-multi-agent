@@ -16,8 +16,17 @@ st.set_page_config(page_title="Overview", layout="wide")
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;500&display=swap');
-html, body, [class*="st-"] { font-family: serif !important; }
-h1, h2, h3 { font-family: serif !important; }
+.stMarkdown p,
+.stMarkdown li,
+.stCaption,
+[data-testid="stMarkdownContainer"] {
+    font-family: 'Lora', serif !important;
+}
+
+h1, h2, h3 {
+    font-family: 'Lora', serif !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
