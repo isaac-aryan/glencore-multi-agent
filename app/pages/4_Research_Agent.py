@@ -8,8 +8,14 @@ sys.path.insert(0, str(_root))
 sys.path.insert(0, str(_root / "src"))
 
 import asyncio
-import streamlit as st
 from dotenv import load_dotenv
+import streamlit as st
+import os
+
+if "OPENAI_API_KEY" in st.secrets:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
+from agents import Runner
 from agents import Runner
 from agents.mcp import MCPServerStdio
 from agent.agents import create_agents, MCP_SERVER_CONFIG
