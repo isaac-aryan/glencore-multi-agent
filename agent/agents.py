@@ -32,32 +32,18 @@ def get_mcp_config():
     _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _src_path = os.path.join(_project_root, "src")
     _mcp_path = os.path.join(_src_path, "glencore_multi_agent", "mcp_server.py")
-    
-    # Use the same Python executable that's running this process
-    # This ensures the subprocess uses the venv with all packages installed
     _python = sys.executable
-    
+
     return {
         "command": _python,
         "args": [_mcp_path],
+        "cwd": _project_root,   # ← subprocess starts from project root
         "env": {
             **os.environ,
             "PYTHONPATH": _src_path,
             "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
         },
     }
-
-def test_mcp_server():
-    """Run the MCP server directly and capture any startup errors."""
-    cfg = get_mcp_config()
-    result = subprocess.run(
-        [cfg["command"]] + cfg["args"] + ["--help"],
-        env=cfg["env"],
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    return result.stdout, result.stderr
 
 # Keep MCP_SERVER_CONFIG as a property for backwards compatibility
 MCP_SERVER_CONFIG = get_mcp_config()

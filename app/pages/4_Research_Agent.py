@@ -18,30 +18,7 @@ if "OPENAI_API_KEY" in st.secrets:
 import subprocess
 import os
 
-# Run the MCP server directly and capture what it prints before crashing
-with st.expander("🔧 MCP Server Debug", expanded=True):
-    cfg = get_mcp_config()
-    st.write("**MCP server path:**", cfg["args"][0])
-    st.write("**Path exists:**", os.path.exists(cfg["args"][0]))
-    st.write("**PYTHONPATH:**", cfg["env"].get("PYTHONPATH"))
-    st.write("**API key present:**", bool(cfg["env"].get("OPENAI_API_KEY")))
-    
-    # Try importing the mcp_server module directly
-    try:
-        result = subprocess.run(
-            ["python", "-c", 
-             f"import sys; sys.path.insert(0, '{cfg['env']['PYTHONPATH']}'); import glencore_multi_agent.mcp_server; print('import OK')"],
-            env=cfg["env"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        st.write("**Import stdout:**", result.stdout)
-        st.write("**Import stderr:**", result.stderr)
-        st.write("**Return code:**", result.returncode)
-    except Exception as e:
-        st.write("**Subprocess error:**", str(e))
-        
+
 # Now import agent modules — they'll see the correct environment
 import asyncio
 from dotenv import load_dotenv
@@ -130,14 +107,6 @@ for col, (icon_label, full_q) in zip(cols, suggestions):
 
 st.divider()
 
-with st.expander("Debug — MCP server startup check"):
-    from agent.agents import test_mcp_server
-    stdout, stderr = test_mcp_server()
-    st.code(f"STDOUT:\n{stdout}\n\nSTDERR:\n{stderr}")
-    st.code(f"MCP path: {get_mcp_config()['args'][0]}")
-    st.code(f"PYTHONPATH: {get_mcp_config()['env']['PYTHONPATH']}")
-    st.code(f"API key set: {'OPENAI_API_KEY' in os.environ and bool(os.environ['OPENAI_API_KEY'])}")
-    
 # Chat
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
