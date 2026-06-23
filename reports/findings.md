@@ -44,5 +44,33 @@ to detect a true annual pattern is limited regardless.
 - Conditional vol: 34.95% annualised — moderate regime
 - 5-day forecast: 34.70% → 34.99% (slowly mean-reverting upward toward long-run)
 
+## Stage 3 Finding — Commodities & Cointegration
+
+**Date:** June 2026
+
+### Granger Causality
+- Copper → Glencore: p=0.0064 ✓ significant
+- Glencore → Copper: p=0.1792 ✗ not significant
+- **Verdict:** Copper leads Glencore in the short run. Glencore is a
+  price-taker — no evidence the trading division gives it information
+  advantage over the copper market.
+
+### Cointegration (Engle-Granger, Glencore vs Copper)
+- EG stat: -2.53, p=0.267 — not cointegrated at 5%
+- Critical value (5%): -3.34 — stat is not sufficiently negative
+- **Verdict:** No stable long-run equilibrium between log prices.
+  Deviations between Glencore and copper can persist indefinitely.
+
+### Combined interpretation
+Copper has short-run predictive power over Glencore returns (Granger),
+but the two prices are not tethered over the long run (no cointegration).
+Glencore is commodity-sensitive but not a commodity proxy.
+
+### Caveats
+- Nickel (NI=F) delisted — removed from analysis
+- Zinc coverage poor — not tested
+- Relationship may hold over sub-periods — rolling stability not yet run
+- Full basket (copper + brent jointly) not tested via Johansen yet
+
 ### Next
-Stage 3 — Cointegration with commodity basket
+Stage 4 — ML forecasting with walk-forward validation

@@ -6,11 +6,11 @@ glencore:
   currency: "GBX"             # important — see gotcha below
 
 commodities:
-  copper: "HG=F"              # COMEX copper futures (USD/lb)
-  brent: "BZ=F"               # Brent crude futures
-  natgas: "NG=F"              # Natural gas
-  zinc: "ZNC=F"               # Note: may have gaps — validate
-  nickel: "NI=F"              # Note: may have gaps — validate
+  copper: "HG=F"
+  brent: "BZ=F"
+  natgas: "NG=F"
+  zinc: "ZNC=F"
+  # nickel removed — NI=F delisted
 
 macro:
   dxy: "DX-Y.NYB"             # US Dollar Index

@@ -17,7 +17,7 @@ import pandas as pd
 from fastmcp import FastMCP
 
 # Import your existing Stage 0 data module
-from glencore_multi_agent.data import load_glencore, load_aligned_panel, load_dividends
+from glencore_multi_agent.data import load_glencore, load_aligned_panel, load_dividends, load_commodities
 
 # ── Create the server ──────────────────────────────────────────────────────
 mcp = FastMCP(
@@ -370,6 +370,132 @@ def fit_garch(
 
     if distribution == "t":
         result["student_t_df"] = round(float(params.get("nu", 30)), 2)
+
+    return result
+
+@mcp.tool
+def run_granger_causality(
+    commodity: Literal["copper", "brent", "natgas", "dxy"] = "copper",
+    max_lag: int = 5,
+) -> dict:
+    """
+    Test Granger causality between Glencore and a commodity in both directions.
+
+    Tests whether past values of the commodity help predict Glencore returns
+    beyond Glencore's own history, and vice versa.
+
+    Args:
+        commodity: Which commodity to test against Glencore.
+        max_lag: Maximum lag order to test (default 5 days).
+
+    Returns p-values for both directions and a plain-English interpretation.
+    """
+    from statsmodels.tsa.stattools import grangercausalitytests
+
+    glen = load_glencore()
+    comms = load_commodities()
+
+    ret_col = f"{commodity}_log_ret"
+    if ret_col not in comms.columns:
+        return {"error": f"No return data for {commodity}"}
+
+    panel = pd.concat([
+        glen["log_return"].rename("glen"),
+        comms[ret_col].rename(commodity),
+    ], axis=1).dropna()
+
+    def min_p(y_col, x_col):
+        res = grangercausalitytests(panel[[y_col, x_col]],
+                                      maxlag=max_lag, verbose=False)
+        return min(res[l][0]["ssr_ftest"][1] for l in range(1, max_lag+1))
+
+    p_comm_to_glen = min_p("glen", commodity)
+    p_glen_to_comm = min_p(commodity, "glen")
+
+    return {
+        "commodity": commodity,
+        "n_observations": len(panel),
+        f"{commodity}_causes_glen": {
+            "p_value": round(p_comm_to_glen, 6),
+            "significant": bool(p_comm_to_glen < 0.05),
+        },
+        f"glen_causes_{commodity}": {
+            "p_value": round(p_glen_to_comm, 6),
+            "significant": bool(p_glen_to_comm < 0.05),
+        },
+        "interpretation": (
+            f"Bidirectional feedback between Glencore and {commodity}."
+            if p_comm_to_glen < 0.05 and p_glen_to_comm < 0.05
+            else f"{commodity.upper()} leads Glencore (commodity → stock)."
+            if p_comm_to_glen < 0.05
+            else f"Glencore leads {commodity.upper()} (stock → commodity)."
+            if p_glen_to_comm < 0.05
+            else f"No significant Granger causality in either direction."
+        ),
+    }
+
+
+@mcp.tool
+def run_cointegration_test(
+    commodity: Literal["copper", "brent", "natgas", "dxy"] = "copper",
+) -> dict:
+    """
+    Run Engle-Granger cointegration test between Glencore and a commodity.
+
+    Tests whether log(GLEN.L price) and log(commodity price) share a stable
+    long-run equilibrium — i.e. deviations from fair value mean-revert.
+
+    Returns test statistic, p-value, and if cointegrated: the cointegrating
+    coefficient and the spread's mean-reversion half-life in trading days.
+    """
+    from statsmodels.tsa.stattools import coint, adfuller
+    from statsmodels.regression.linear_model import OLS
+    from statsmodels.tools import add_constant
+
+    glen = load_glencore()
+    comms = load_commodities()
+
+    if commodity not in comms.columns:
+        return {"error": f"No price data for {commodity}"}
+
+    glen_lp = np.log(glen["adj_close"])
+    comm_lp = np.log(comms[commodity])
+    aligned = pd.concat([glen_lp.rename("glen"),
+                         comm_lp.rename(commodity)], axis=1).dropna()
+
+    t_stat, p_val, crit = coint(aligned["glen"], aligned[commodity])
+    is_coint = bool(p_val < 0.05)
+
+    result = {
+        "pair": f"GLEN.L vs {commodity}",
+        "n_observations": len(aligned),
+        "eg_statistic": round(float(t_stat), 4),
+        "p_value": round(float(p_val), 6),
+        "cointegrated_at_5pct": is_coint,
+        "critical_values": {
+            "1pct": round(float(crit[0]), 4),
+            "5pct": round(float(crit[1]), 4),
+            "10pct": round(float(crit[2]), 4),
+        },
+    }
+
+    if is_coint:
+        ols = OLS(aligned["glen"],
+                   add_constant(aligned[commodity])).fit()
+        spread = ols.resid
+        delta  = spread.diff().dropna()
+        lag    = spread.shift(1).dropna()
+        mn     = min(len(delta), len(lag))
+        kappa  = OLS(delta.iloc[:mn],
+                      add_constant(lag.iloc[:mn])).fit().params.iloc[1]
+        half_life = (
+            round(float(-np.log(2) / np.log(1 + kappa)), 1)
+            if kappa < 0 else None
+        )
+        result["cointegrating_coefficient"] = round(float(ols.params.iloc[1]), 4)
+        result["spread_mean_reversion_half_life_days"] = half_life
+        result["current_spread_zscore"] = round(
+            float((spread.iloc[-1] - spread.mean()) / spread.std()), 3)
 
     return result
 
