@@ -1,26 +1,33 @@
+# At the top of the file, import get_mcp_config instead of MCP_SERVER_CONFIG
+from agent.agents import create_agents, get_mcp_config
+
 import sys
 from pathlib import Path
-# import nest_asyncio
-# nest_asyncio.apply()
+import os
 
 _root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_root))
 sys.path.insert(0, str(_root / "src"))
 
-import asyncio
-from dotenv import load_dotenv
 import streamlit as st
-import os
 
+# Inject secrets into environment BEFORE importing agent modules
 if "OPENAI_API_KEY" in st.secrets:
     os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
+# Now import agent modules — they'll see the correct environment
+import asyncio
+from dotenv import load_dotenv
 from agents import Runner
+from agents.mcp import MCPServerStdio
+from agent.agents import create_agents, get_mcp_config
+
+load_dotenv()
+
+# Import after setting environment variables
 from agents import Runner
 from agents.mcp import MCPServerStdio
 from agent.agents import create_agents, MCP_SERVER_CONFIG
-
-load_dotenv()
 
 st.set_page_config(page_title="Research Agent", layout="wide")
 
@@ -118,7 +125,7 @@ if question:
         with st.spinner("Running analysis pipeline..."):
             async def run_agent(q):
                 async with MCPServerStdio(
-                    params=MCP_SERVER_CONFIG,
+                     params=get_mcp_config(),
                     cache_tools_list=True,
                     client_session_timeout_seconds=60.0,
                 ) as mcp:
