@@ -17,8 +17,11 @@ import yfinance as yf
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-def load_config(config_path: str = "config.yaml") -> dict:
+def load_config(config_path: str = None) -> dict:
     """Load project config from config.yaml."""
+    if config_path is None:
+        # Always resolve relative to data.py itself, not the working directory
+        config_path = Path(__file__).parent.parent.parent / "config.yaml"
     with open(config_path) as f:
         return yaml.safe_load(f)
 

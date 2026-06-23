@@ -243,23 +243,70 @@ def run_seasonality_analysis() -> dict:
         "units_note": "Values are average daily log returns in percent (e.g. 0.10 means 0.10% per day, not 10%)",
     }
 
-
 @mcp.tool
-def fit_garch(p: int = 1, q: int = 1, period: str = "full") -> dict:
+def run_arch_test(period: str = "full") -> dict:
     """
-    Fit a GARCH(p, q) volatility model to Glencore log returns.
+    Run Engle's ARCH-LM test to check whether GARCH modelling is warranted.
+
+    Tests the null hypothesis of constant variance (no ARCH effects).
+    A significant result (p < 0.05) confirms volatility clustering is present
+    and GARCH modelling is statistically justified.
 
     Args:
-        p: ARCH order (number of lagged squared return terms). Default 1.
-        q: GARCH order (number of lagged variance terms). Default 1.
-        period: Data period to fit on ('1y', '2y', '5y', 'full').
+        period: Data period to test ('1y', '2y', '5y', 'full').
 
-    Returns model parameters (omega, alpha, beta), their p-values,
-    the persistence measure (alpha+beta), current conditional volatility,
-    and a 5-day forward volatility forecast.
+    Returns test statistic, p-value, and a plain-English verdict.
+    """
+    from statsmodels.stats.diagnostic import het_arch
 
-    Note: persistence near 1.0 means shocks decay slowly — volatility clustering
-    is strong. This is the key finding that justifies GARCH over constant-vol models.
+    df = load_glencore()
+    if period != "full":
+        years = {"1y": 1, "2y": 2, "5y": 5}.get(period, 5)
+        df = df[df.index >= df.index[-1] - pd.DateOffset(years=years)]
+
+    r = df["log_return"].dropna() * 100
+    lm_stat, lm_p, f_stat, f_p = het_arch(r, nlags=10)
+
+    return {
+        "test": "Engle ARCH-LM",
+        "null_hypothesis": "No ARCH effects (constant variance)",
+        "period": period,
+        "n_observations": len(r),
+        "lm_statistic": round(float(lm_stat), 4),
+        "lm_p_value": round(float(lm_p), 8),
+        "f_statistic": round(float(f_stat), 4),
+        "f_p_value": round(float(f_p), 8),
+        "arch_effects_present": bool(lm_p < 0.05),
+        "verdict": (
+            "ARCH effects confirmed — GARCH modelling is statistically justified."
+            if lm_p < 0.05
+            else
+            "No significant ARCH effects — constant variance model may suffice."
+        ),
+    }
+
+@mcp.tool
+def fit_garch(
+    p: int = 1,
+    q: int = 1,
+    asymmetric: bool = False,
+    distribution: Literal["normal", "t"] = "normal",
+    period: str = "full",
+) -> dict:
+    """
+    Fit a GARCH volatility model to Glencore log returns.
+
+    Args:
+        p: ARCH order. Default 1.
+        q: GARCH order. Default 1.
+        asymmetric: If True, fits GJR-GARCH which captures the leverage effect
+                    (negative shocks increasing vol more than positive ones).
+        distribution: Innovation distribution. 'normal' or 't' (Student-t,
+                      better for fat tails). Default 'normal'.
+        period: Data period ('1y', '2y', '5y', 'full').
+
+    Returns parameters, p-values, persistence, AIC, current conditional vol,
+    5-day forecast, and leverage effect results if asymmetric=True.
     """
     from arch import arch_model
 
@@ -268,42 +315,63 @@ def fit_garch(p: int = 1, q: int = 1, period: str = "full") -> dict:
         years = {"1y": 1, "2y": 2, "5y": 5}.get(period, 5)
         df = df[df.index >= df.index[-1] - pd.DateOffset(years=years)]
 
-    returns_pct = df["log_return"].dropna() * 100  # arch expects % scale
-    model = arch_model(returns_pct, vol="Garch", p=p, q=q, dist="normal")
+    r = df["log_return"].dropna() * 100
+    o = 1 if asymmetric else 0
+    model = arch_model(r, vol="Garch", p=p, o=o, q=q, dist=distribution)
     fit = model.fit(disp="off")
     params = fit.params
-    pvals = fit.pvalues
-    forecast = fit.forecast(horizon=5)
-    fcast_vol = np.sqrt(forecast.variance.iloc[-1].values) * np.sqrt(252)
+    pvals  = fit.pvalues
 
     alpha = float(params.get("alpha[1]", 0))
     beta  = float(params.get("beta[1]", 0))
+    gamma = float(params.get("gamma[1]", 0))
+    persistence = alpha + beta + 0.5 * gamma if asymmetric else alpha + beta
 
-    return {
-        "model": f"GARCH({p},{q})",
-        "n_observations": len(returns_pct),
+    forecast = fit.forecast(horizon=5, reindex=False)
+    fcast_vol = np.sqrt(forecast.variance.iloc[-1].values) * np.sqrt(252)
+
+    result = {
+        "model": f"{'GJR-' if asymmetric else ''}GARCH({p},{q})-{distribution}",
+        "n_observations": len(r),
         "parameters": {
             "omega": round(float(params["omega"]), 6),
             "alpha": round(alpha, 4),
-            "beta": round(beta, 4),
+            "beta":  round(beta, 4),
         },
         "p_values": {
             "omega": round(float(pvals["omega"]), 4),
             "alpha": round(float(pvals.get("alpha[1]", 1)), 4),
-            "beta": round(float(pvals.get("beta[1]", 1)), 4),
+            "beta":  round(float(pvals.get("beta[1]", 1)), 4),
         },
-        "persistence": round(alpha + beta, 4),
+        "persistence": round(persistence, 4),
         "persistence_interpretation": (
-            "High persistence — volatility shocks decay slowly"
-            if alpha + beta > 0.9
-            else "Moderate persistence"
+            "High — volatility shocks decay slowly (weeks)"
+            if persistence > 0.95
+            else "Moderate — shocks decay within days"
         ),
         "aic": round(float(fit.aic), 2),
-        "vol_forecast_5day_annualised_pct": [
-            round(float(v), 2) for v in fcast_vol
-        ],
+        "bic": round(float(fit.bic), 2),
+        "current_conditional_vol_ann_pct": round(
+            float(fit.conditional_volatility.iloc[-1]) * np.sqrt(252), 2),
+        "vol_forecast_5day_ann_pct": [round(float(v), 2) for v in fcast_vol],
     }
 
+    if asymmetric:
+        result["leverage_effect"] = {
+            "gamma": round(gamma, 4),
+            "gamma_p_value": round(float(pvals.get("gamma[1]", 1)), 4),
+            "significant": bool(float(pvals.get("gamma[1]", 1)) < 0.05),
+            "interpretation": (
+                "Leverage effect confirmed: negative shocks increase vol more than positive"
+                if gamma > 0 and float(pvals.get("gamma[1]", 1)) < 0.05
+                else "Leverage effect not statistically significant"
+            ),
+        }
+
+    if distribution == "t":
+        result["student_t_df"] = round(float(params.get("nu", 30)), 2)
+
+    return result
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
