@@ -15,6 +15,33 @@ import streamlit as st
 if "OPENAI_API_KEY" in st.secrets:
     os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
+import subprocess
+import os
+
+# Run the MCP server directly and capture what it prints before crashing
+with st.expander("🔧 MCP Server Debug", expanded=True):
+    cfg = get_mcp_config()
+    st.write("**MCP server path:**", cfg["args"][0])
+    st.write("**Path exists:**", os.path.exists(cfg["args"][0]))
+    st.write("**PYTHONPATH:**", cfg["env"].get("PYTHONPATH"))
+    st.write("**API key present:**", bool(cfg["env"].get("OPENAI_API_KEY")))
+    
+    # Try importing the mcp_server module directly
+    try:
+        result = subprocess.run(
+            ["python", "-c", 
+             f"import sys; sys.path.insert(0, '{cfg['env']['PYTHONPATH']}'); import glencore_multi_agent.mcp_server; print('import OK')"],
+            env=cfg["env"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        st.write("**Import stdout:**", result.stdout)
+        st.write("**Import stderr:**", result.stderr)
+        st.write("**Return code:**", result.returncode)
+    except Exception as e:
+        st.write("**Subprocess error:**", str(e))
+        
 # Now import agent modules — they'll see the correct environment
 import asyncio
 from dotenv import load_dotenv
