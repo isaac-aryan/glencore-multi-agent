@@ -129,7 +129,8 @@ if question:
             try:
                 answer = asyncio.run(run_agent(question))
             except Exception as e:
-                answer = f"Agent error: {str(e)}"
+                st.exception(e)
+                answer = f"Agent error: {repr(e)}"
 
         st.markdown(answer)
         st.session_state["messages"].append({"role": "assistant", "content": answer})
