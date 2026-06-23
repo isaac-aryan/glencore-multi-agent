@@ -1,89 +1,169 @@
 import sys
-import streamlit as st
-sys.path.insert(0, "src")  # run from project root
+from pathlib import Path
 
-import numpy as np
-import pandas as pd
-import plotly.graph_objects as go
-from glencore_multi_agent.data import load_glencore, load_dividends
+_root = Path(__file__).parent.parent
+sys.path.insert(0, str(_root))
+sys.path.insert(0, str(_root / "src"))
+
+import streamlit as st
 
 st.set_page_config(
     page_title="Glencore Quant Research",
-    page_icon="⛏",
+    page_icon="📊",
     layout="wide",
 )
 
-st.title("⛏ Glencore Quant Research")
-st.caption("A time series, volatility and commodity analysis of GLEN.L")
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap');
 
-# ── Load data ────────────────────────────────────────────────────────────────
-@st.cache_data(ttl=3600)  # cache for 1 hour — avoid re-downloading on every rerun
-def get_data():
-    return load_glencore(), load_dividends()
+.stMarkdown, .stText, p, li, label, .stCaption {
+    font-family: 'Lora', serif !important;
+}
+h1, h2, h3, h4 {
+    font-family: 'Lora', serif !important;
+    font-weight: 700 !important;
+}
 
-glen, divs = get_data()
-r = glen["log_return"].dropna()
+.story-block {
+    background: #171b26;
+    border: 1px solid #2a2f45;
+    border-left: 4px solid #4ade9e;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    color: #c8d0dc;
+    line-height: 1.8;
+    font-family: 'Lora', serif;
+}
+.story-block strong { color: #e2e8f0; }
 
-# ── Key metrics row ──────────────────────────────────────────────────────────
-col1, col2, col3, col4, col5 = st.columns(5)
-current_p = float(glen["adj_close"].iloc[-1])
-prev_p    = float(glen["adj_close"].iloc[-2])
-daily_chg = (current_p - prev_p) / prev_p * 100
-ann_ret   = r.mean() * 252 * 100
-ann_vol   = r.std() * np.sqrt(252) * 100
-ytd_ret   = float(
-    glen[glen.index.year == glen.index[-1].year]["log_return"].sum() * 100
-)
+.finding-chip {
+    display: inline-block;
+    background: rgba(74,222,158,0.08);
+    border: 1px solid rgba(74,222,158,0.25);
+    border-radius: 6px;
+    padding: 5px 13px;
+    font-size: 13px;
+    color: #4ade9e;
+    margin: 4px 4px 4px 0;
+    font-family: 'Lora', serif;
+}
 
-col1.metric("Price (GBX)",    f"{current_p:.1f}p", f"{daily_chg:+.2f}%")
-col2.metric("Price (GBP)",    f"£{current_p/100:.3f}")
-col3.metric("YTD Return",     f"{ytd_ret:+.1f}%")
-col4.metric("Ann. Vol",       f"{ann_vol:.1f}%")
-col5.metric("Data since",     f"{glen.index[0].date()}")
+.stage-card {
+    background: #171b26;
+    border: 1px solid #2a2f45;
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    height: 100%;
+}
+.stage-num {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #4ade9e;
+    margin-bottom: 5px;
+    font-family: 'Lora', serif;
+}
+.stage-title {
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 5px;
+    font-family: 'Lora', serif;
+}
+.stage-desc {
+    color: #8892a4;
+    font-size: 13px;
+    line-height: 1.55;
+    font-family: 'Lora', serif;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.title("Glencore Quant Research")
+st.markdown("**GLEN.L** | Time series, volatility, and commodity analysis — self-directed learning project")
+
+col_gh, _ = st.columns([1, 6])
+col_gh.link_button("GitHub", "https://github.com/YOUR_USERNAME/glencore-multi-agent")
 
 st.divider()
 
-# ── Price chart ──────────────────────────────────────────────────────────────
-st.subheader("Adjusted Close Price (GBX)")
+# Motivation
+st.subheader("Background")
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=glen.index, y=glen["adj_close"],
-    name="Adj Close", line=dict(color="#4ade9e", width=1.5),
-    hovertemplate="%{x|%Y-%m-%d}: %{y:.1f}p<extra></extra>",
-))
+st.markdown("""
+<div class="story-block">
+I hold Glencore in my portfolio and noticed what appeared to be a recurring annual cycle
+in the price chart on Trading212. The pattern looked consistent enough that it seemed worth
+investigating rigorously rather than treating it as obvious. My initial assumption was that
+commodity demand seasonality was bleeding through into the equity price, but I wanted to
+test that properly before drawing any conclusions.
+</div>
 
-# Mark ex-dividend dates
-div_dates = [d for d in divs.index if d in glen.index]
-div_prices = [float(glen.loc[d, "adj_close"]) for d in div_dates]
-fig.add_trace(go.Scatter(
-    x=div_dates, y=div_prices, mode="markers",
-    name="Ex-dividend", marker=dict(color="#f97316", size=6, symbol="diamond"),
-    hovertemplate="Ex-div: %{x|%Y-%m-%d}<extra></extra>",
-))
+<div class="story-block">
+The project grew from that single question into a full quantitative research workflow:
+stationarity testing, spectral analysis, GARCH volatility modelling, multivariate cointegration
+with the underlying commodity basket, and a walk-forward validated ML forecasting pipeline.
+The subject matter reflects a stock I genuinely follow, which kept the analysis grounded.
+The goal throughout was methodological rigour rather than finding a trading strategy.
+</div>
 
-fig.update_layout(
-    height=380, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)", legend=dict(orientation="h", y=1.02),
-    margin=dict(l=0, r=0, t=30, b=0),
-)
-st.plotly_chart(fig, use_container_width=True)
-st.caption("Orange diamonds = ex-dividend dates. Adjusted prices remove dividend drops.")
+<div class="story-block">
+As an extension, the analysis pipeline was wrapped into a multi-agent system using the
+OpenAI Agents SDK and a custom MCP server, so the statistical tools can be queried
+conversationally via the Research Agent page. This dashboard is the final output.
+</div>
+""", unsafe_allow_html=True)
 
-# ── Return distribution ──────────────────────────────────────────────────────
-st.subheader("Daily Log Return Distribution")
-fig2 = go.Figure()
-fig2.add_trace(go.Histogram(
-    x=r * 100, nbinsx=100, name="Returns",
-    marker_color="#6c8cff", opacity=0.75,
-    hovertemplate="%{x:.2f}%: %{y} days<extra></extra>",
-))
-fig2.update_layout(
-    height=280, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)", xaxis_title="Return (%)",
-    margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig2, use_container_width=True)
-st.caption(
-    f"Kurtosis: {r.kurtosis():.2f} (normal=0). Fat tails justify GARCH volatility modelling."
-)
+st.divider()
+
+# Findings
+st.subheader("Key findings")
+
+st.markdown("""
+<span class="finding-chip">Stage 1 — No significant annual seasonality (F-test p=0.71)</span>
+<span class="finding-chip">Stage 2 — Leverage effect confirmed in GJR-GARCH (gamma p=0.008)</span>
+<span class="finding-chip">Stage 3 — Copper Granger-causes Glencore (p=0.006)</span>
+<span class="finding-chip">Stage 3 — No cointegration with copper (EG p=0.27)</span>
+""", unsafe_allow_html=True)
+
+st.caption("The apparent annual cycle was largely explained by semi-annual dividend drops on the raw price chart, which disappear in adjusted returns. A negative result, honestly arrived at.")
+
+st.divider()
+
+# Stages
+st.subheader("Project structure")
+
+stages = [
+    ("Stage 0", "Data Foundation",
+     "Download-once caching, adjusted price handling, commodity data sourcing, calendar alignment."),
+    ("Stage 1", "Seasonality",
+     "ADF/KPSS tests, STL decomposition, periodogram, SARIMA, calendar F-test."),
+    ("Stage 2", "Volatility",
+     "ARCH-LM test, GARCH(1,1), GJR-GARCH, Student-t innovations, VaR."),
+    ("Stage 3", "Commodities",
+     "VAR, impulse response, Granger causality, Engle-Granger and Johansen cointegration."),
+    ("Stage 4", "ML Forecasting",
+     "Walk-forward CV, XGBoost, baseline comparison, cost-adjusted backtest."),
+    ("Stage 5", "Agentic System",
+     "Multi-agent pipeline via OpenAI Agents SDK and custom FastMCP server."),
+]
+
+col1, col2, col3 = st.columns(3)
+cols = [col1, col2, col3]
+for i, (num, title, desc) in enumerate(stages):
+    with cols[i % 3]:
+        st.markdown(f"""
+<div class="stage-card">
+  <div class="stage-num">{num}</div>
+  <div class="stage-title">{title}</div>
+  <div class="stage-desc">{desc}</div>
+</div>
+""", unsafe_allow_html=True)
+
+st.divider()
+st.caption("Python · yfinance · statsmodels · arch · scikit-learn · XGBoost · OpenAI Agents SDK · FastMCP · Streamlit · Plotly")
