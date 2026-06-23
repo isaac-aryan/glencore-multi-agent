@@ -1,0 +1,22 @@
+# Glencore Quant — central config
+
+glencore:
+  ticker: "GLEN.L"            # LSE, priced in pence (GBX)
+  start_date: "2011-05-19"    # IPO date
+  currency: "GBX"             # important — see gotcha below
+
+commodities:
+  copper: "HG=F"              # COMEX copper futures (USD/lb)
+  brent: "BZ=F"               # Brent crude futures
+  natgas: "NG=F"              # Natural gas
+  zinc: "ZNC=F"               # Note: may have gaps — validate
+  nickel: "NI=F"              # Note: may have gaps — validate
+
+macro:
+  dxy: "DX-Y.NYB"             # US Dollar Index
+  gbpusd: "GBPUSD=X"          # for currency conversion
+
+paths:
+  raw: "data/raw"
+  interim: "data/interim"
+  processed: "data/processed"
