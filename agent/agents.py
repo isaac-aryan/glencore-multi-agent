@@ -22,18 +22,24 @@ load_dotenv()
 # ── MCP server config ──────────────────────────────────────────────────────
 # Tells the SDK how to spawn your MCP server as a subprocess.
 # Uses stdio transport — the agent SDK and server talk over stdin/stdout.
-import os
 
 # Build the absolute path to src/ relative to this file
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _src_path = os.path.join(_project_root, "src")
 
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+SRC = ROOT / "src"
+
 MCP_SERVER_CONFIG = {
     "command": "python",
-    "args": ["src/glencore_multi_agent/mcp_server.py"],
+    "args": [
+        str(SRC / "glencore_multi_agent" / "mcp_server.py")
+    ],
     "env": {
         **os.environ,
-        "PYTHONPATH": _src_path,
+        "PYTHONPATH": str(SRC),
     },
 }
 
